@@ -34,26 +34,44 @@
     (import (rnrs)
 	    (rnrs eval)
 	    (rfc base64)
+	    (getopt)
 	    (util bytevector)
 	    (sagittarius crypto digests)
 	    (cofre commands api))
 
+(define usage
+  '(
+    "digest algorithm [-f $format] [-l $length] value"
+    "    -f, --format: output format, base64, hex or sexp"
+    "    -l, --length: output length if needed. i.e. for shake"
+    "  algorithm: specifying $name of *digest:$name*, e.g. sha-1"
+    "             for the complete list, see (sagittarius crypto digests)"
+    ))
+  
 (define (operation->command-executor op)
   (define name (symbol->string op))
   (define digest (string->symbol (string-append "*digest:" name "*")))
-  (guard (e (else (command-usage-error 'digest "unknown digest algorithm" op)))
+  (guard (e (else (command-usage-error
+		   'digest "unknown digest algorithm" usage op)))
     (let ((md (eval `(make-message-digest ,digest)
 		    (environment '(sagittarius crypto digests)))))
-      (lambda (str :optional (format "base64") (length #f))
-	(let ((f (formatter (string->symbol format)))
-	      (l (and length (string->number length))))
-	  (f (digest-message md (string->utf8 str) l)))))))
+      (lambda args
+	(with-args args
+	    ((format (#\f "format") #t "base64")
+	     (length (#\l "length") #t #f)
+	     . rest)
+	  (when (null? rest)
+	    (command-usage-error 'digest "missing value" usage args))
+	  (let ((str (car rest))
+		(f (formatter (string->symbol format)))
+		(l (and length (string->number length))))
+	    (f (digest-message md (string->utf8 str) l))))))))
 
 (define (formatter format)
   (case format
     ((base64) (lambda (bv) (utf8->string (base64-encode bv :line-width #f))))
     ((hex) bytevector->hex-string)
     ((sexp) values)
-    (else (command-usage-error 'digest "unknown output format" format))))
+    (else (command-usage-error 'digest "unknown output format" usage format))))
 
 )

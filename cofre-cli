@@ -19,9 +19,10 @@ exec sagittarius -L${dir}/lib $0 "$@"
     (cond ((pair? v) (append-map ->string v))
 	  ((string? v) (list v))
 	  (else (list (format "~s" v)))))
-
-  (print-error (format "Command: ~a" (command-condition-command e)))
   (print-error (string-append "Error: " (condition-message e)))
+  (print-error (string-append "Usage: cofre-cli "
+			      (string-join (command-condition-usage e) "\n")))
+  
   (print-error (string-append "Arguments: "
 			      (string-join (->string (condition-irritants e)))))
   )
@@ -36,8 +37,8 @@ exec sagittarius -L${dir}/lib $0 "$@"
 		  (category (string->symbol (car args)))
 		  (operation (string->symbol (cadr args)))
 		  (arguments (cddr args)))))
-    (guard (e ((command-condition? e) (print-command-error e) (exit -1))
-	      (else (print-error (condition-message e)) (exit -2)))
+    (guard (e ((command-usage-condition? e) (print-command-error e) (exit -1))
+	      (else (print-error e) (exit -2)))
       (print (cofre:execute-command command)))))
 
 (define (cofre:repl) (error 'cofre:repl "not yet"))

@@ -36,6 +36,11 @@
 	    make-command-condition
 	    command-condition?
 	    command-condition-command
+
+	    make-command-usage-condition
+	    command-usage-condition?
+	    command-condition-usage
+
 	    command-usage-error)
     (import (rnrs)
 	    (rnrs eval)
@@ -66,10 +71,14 @@
   make-command-condition command-condition?
   (command command-condition-command))
 
-(define (command-usage-error command usage args)
+(define-condition-type &command-usage-condition &command-condition
+  make-command-usage-condition command-usage-condition?
+  (usage command-condition-usage))
+
+(define (command-usage-error command message usage args)
   (raise (condition
-	  (make-command-condition command)
-	  (make-message-condition usage)
+	  (make-command-usage-condition command usage)
+	  (make-message-condition message)
 	  (make-irritants-condition args))))
 
 )

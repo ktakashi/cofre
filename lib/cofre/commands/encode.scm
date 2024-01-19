@@ -32,16 +32,30 @@
 (library (cofre commands encode)
     (export operation->command-executor)
     (import (rnrs)
-	    (rnrs eval)
+	    (getopt)
 	    (rfc base64)
 	    (cofre commands api))
+
+(define usage
+  '(
+    "encode operation [-b $break] value"
+    "    -b,--break: line length"
+    "  operation: base64 or base64url"
+    ))
 
 (define (operation->command-executor op)
   (case op
     ((base64) (base64-encoder base64-encode-string))
     ((base64url) (base64-encoder base64url-encode-string))
-    (else (command-usage-error 'encode "unknown operation" op))))
+    (else (command-usage-error 'encode "unknown operation" usage op))))
 
-(define ((base64-encoder encoder) str) (encoder str :line-width #f))
+(define ((base64-encoder encoder) . args)
+  (with-args args
+      ((length (#\b "break") #t #f)
+       . rest)
+    (when (null? rest)
+      (command-usage-error 'encode "value is missing" usage args))
+    (let ((str (car rest)))
+      (encoder str :line-width (and length (string->number length))))))
 
 )

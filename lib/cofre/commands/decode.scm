@@ -32,16 +32,39 @@
 (library (cofre commands decode)
     (export operation->command-executor)
     (import (rnrs)
-	    (rnrs eval)
+	    (getopt)
 	    (rfc base64)
+	    (util bytevector)
 	    (cofre commands api))
+
+(define usage
+  '(
+    "decode operation [-f $format] value"
+    "    -f,--format: output format: string, hex or sexp"
+    "  operation: base64 or base64url"
+    ))
 
 (define (operation->command-executor op)
   (case op
     ((base64) (base64-decoder base64-decode-string))
     ((base64url) (base64-decoder base64url-decode-string))
-    (else (command-usage-error 'encode "unknown operation" op))))
+    (else (command-usage-error 'encode "unknown operation" usage op))))
 
-(define ((base64-decoder decoder) str) (decoder str))
+(define ((base64-decoder decoder) . args)
+  (with-args args
+      ((format (#\f "format") #t "string")
+       . rest)
+    (when (null? rest)
+      (command-usage-error 'decode "value is missing" usage args))
+    (let ((str (car rest))
+	  (->value (formatter (string->symbol format))))
+      (->value (decoder str :transcoder #f)))))
+
+(define (formatter format)
+  (case format
+    ((string) utf8->string)
+    ((hex) bytevector->hex-string)
+    ((sexp) values)
+    (else (command-usage-error 'decode "unknown format" usage format))))
 
 )

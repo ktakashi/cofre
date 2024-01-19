@@ -32,5 +32,7 @@
 	    cofre:command?
 	    cofre:execute-command
 	    command-condition?
-	    command-condition-command)
+	    command-condition-command
+	    command-usage-condition?
+	    command-condition-usage)
     (import (cofre commands api)))
