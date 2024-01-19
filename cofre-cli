@@ -1,0 +1,52 @@
+#!/bin/bash
+#| -*- mode:scheme; coding:utf-8; -*-
+dir=$(dirname "$0")
+exec sagittarius -L${dir}/lib $0 "$@"
+|#
+(import (rnrs)
+	(sagittarius)
+	(srfi :1)
+	(srfi :13)
+	(getopt)
+	(cofre commands))
+
+(define (print-error m)
+  (display m (current-error-port))
+  (newline (current-error-port)))
+
+(define (print-command-error e)
+  (define (->string v)
+    (cond ((pair? v) (append-map ->string v))
+	  ((string? v) (list v))
+	  (else (list (format "~s" v)))))
+
+  (print-error (format "Command: ~a" (command-condition-command e)))
+  (print-error (string-append "Error: " (condition-message e)))
+  (print-error (string-append "Arguments: "
+			      (string-join (->string (condition-irritants e)))))
+  )
+
+(define (usage)
+  (print-error "Usage: cofre-cli category operation [arguments] ...")
+  (exit -1))
+
+(define (execute-command args)
+  (unless (>= (length args) 2) (usage))
+  (let ((command (cofre:command-builder
+		  (category (string->symbol (car args)))
+		  (operation (string->symbol (cadr args)))
+		  (arguments (cddr args)))))
+    (guard (e ((command-condition? e) (print-command-error e) (exit -1))
+	      (else (print-error (condition-message e)) (exit -2)))
+      (print (cofre:execute-command command)))))
+
+(define (cofre:repl) (error 'cofre:repl "not yet"))
+
+(define (main args)
+  (with-args (cdr args)
+      ((interactive? (#\i "interactive") #f #f)
+       . rest)
+    (if interactive?
+	(cofre:repl)
+	(execute-command rest))))
+
