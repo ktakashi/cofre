@@ -34,6 +34,7 @@
     (import (rnrs)
 	    (getopt)
 	    (rfc base64)
+	    (rfc uri)
 	    (util bytevector)
 	    (cofre commands api))
 
@@ -48,6 +49,7 @@
   (case op
     ((base64) (base64-decoder base64-decode-string))
     ((base64url) (base64-decoder base64url-decode-string))
+    ((uri) uri-decode-string)
     (else (command-usage-error 'encode "unknown operation" usage op))))
 
 (define ((base64-decoder decoder) . args)
