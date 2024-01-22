@@ -29,6 +29,10 @@ exec sagittarius -L${dir}/lib $0 "$@"
 
 (define (usage)
   (print-error "Usage: cofre-cli category operation [arguments] ...")
+  (print-error " Special arguments")
+  (print-error "   '@': replace this token with standard input. max once")
+  (print-error "   '$': chain to the next command.")
+  (print-error "        e.g. $ cofre-cli encode base64 aa $ decode base64")
   (exit -1))
 
 (define (execute-command args)
@@ -39,15 +43,46 @@ exec sagittarius -L${dir}/lib $0 "$@"
 		  (arguments (cddr args)))))
     (guard (e ((command-usage-condition? e) (print-command-error e) (exit -1))
 	      (else (print-error e) (exit -2)))
-      (print (cofre:execute-command command)))))
+      (cofre:execute-command command))))
 
-(define (cofre:repl) (error 'cofre:repl "not yet"))
+(define (cofre:repl args) (error 'cofre:repl "not yet"))
+
+(define (replace-pipe rest)
+  (define pipe-mark "@")
+  (let loop ((r '()) (resolved? #f) (args rest))
+    (cond ((null? args) (reverse! r))
+	  ((string=? pipe-mark (car args))
+	   (when resolved?
+	     (print-error "<> must not appear more than once")
+	     (exit -1))
+	   (let ((s (get-string-all (current-input-port))))
+	     (loop (cons s r) #t (cdr args))))
+	  (else (loop (cons (car args) r) resolved? (cdr args))))))
+
+(define (split-by args pred)
+  (let loop ((r '()) (args args))
+    (if (null? args)
+	(reverse! r)
+	(let loop2 ((v '()) (args args))
+	  (cond ((null? args) (reverse! (cons (reverse! v) r)))
+		((pred (car args)) (loop (cons (reverse! v) r) (cdr args)))
+		(else (loop2 (cons (car args) v) (cdr args))))))))
 
 (define (main args)
   (with-args (cdr args)
       ((interactive? (#\i "interactive") #f #f)
        . rest)
-    (if interactive?
-	(cofre:repl)
-	(execute-command rest))))
+    (if (exists (lambda (s) (string=? "$" s)) rest)
+	;; chain
+	(let ((commands (split-by rest (lambda (s) (string=? "$" s)))))
+	  (print (fold-left (lambda (acc command)
+			      (let ((resolved (replace-pipe command)))
+				(if acc
+				    (execute-command `(,@resolved ,acc))
+				    (execute-command resolved))))
+			    #f commands)))
+	(let ((resolved (replace-pipe rest)))
+	  (if (or (null? resolved) interactive?)
+	      (cofre:repl resolved)
+	      (print (execute-command resolved)))))))
 
