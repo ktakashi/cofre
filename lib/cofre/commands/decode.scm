@@ -42,7 +42,14 @@
   '(
     "decode operation [-f $format] value"
     "    -f,--format: output format: string, hex or sexp"
-    "  operation: base64 or base64url"
+    "  operation: base64, base64url or uri"
+    ""
+    "  base64 operation"
+    "   The given value is decoded from Base64 text"
+    "  base64url operation"
+    "   The given value is decoded from Base64URL text"
+    "  uri operation"
+    "   The given value is decoded from percentage encoding"
     ))
 
 (define (operation->command-executor op)

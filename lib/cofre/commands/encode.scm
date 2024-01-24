@@ -41,7 +41,14 @@
   '(
     "encode operation [-b $break] value"
     "    -b,--break: line length"
-    "  operation: base64 or base64url"
+    "  operation: base64, base64url or uri"
+    ""
+    "  base64 operation"
+    "   The given value is encoded to Base64 with padding"
+    "  base64url operation"
+    "   The given value is encoded to Base64URL"
+    "  uri operation"
+    "   The given value is encoded to percentage encoding"
     ))
 
 (define (operation->command-executor op)
