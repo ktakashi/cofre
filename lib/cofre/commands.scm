@@ -33,6 +33,7 @@
 	    cofre:command?
 	    cofre:execute-command
 	    cofre:commands
+	    cofre:command-usage
 	    command-condition?
 	    command-condition-command
 	    command-usage-condition?

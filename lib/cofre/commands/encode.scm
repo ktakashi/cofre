@@ -30,7 +30,8 @@
 
 #!nounbound
 (library (cofre commands encode)
-    (export operation->command-executor)
+    (export operation->command-executor
+	    (rename (usage command-usage)))
     (import (rnrs)
 	    (getopt)
 	    (rfc base64)

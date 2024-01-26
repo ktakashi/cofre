@@ -30,7 +30,8 @@
 
 #!nounbound
 (library (cofre commands digest)
-    (export operation->command-executor)
+    (export operation->command-executor
+	    (rename (usage command-usage)))
     (import (rnrs)
 	    (rnrs eval)
 	    (rfc base64)
@@ -49,6 +50,10 @@
     ))
   
 (define (operation->command-executor op)
+  (unless (symbol? op)
+    (command-usage-error 'digest "operation is required" usage op))
+  (command-executor op))
+(define (command-executor op)
   (define name (symbol->string op))
   (define digest (string->symbol (string-append "*digest:" name "*")))
   (guard (e (else (command-usage-error

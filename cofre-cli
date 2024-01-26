@@ -15,21 +15,22 @@ exec ${SAGITTARIUS} -L${dir}/lib -E info $0 "$@"
   (display m (current-error-port))
   (newline (current-error-port)))
 
+(define (print-usage l)
+  (print-error (string-append "Usage: cofre-cli " (string-join l "\n"))))
+
 (define (print-command-error e)
   (define (->string v)
     (cond ((pair? v) (append-map ->string v))
 	  ((string? v) (list v))
 	  (else (list (format "~s" v)))))
   (print-error (string-append "Error: " (condition-message e)))
-  (print-error (string-append "Usage: cofre-cli "
-			      (string-join (command-condition-usage e) "\n")))
-  
+  (print-usage (command-condition-usage e))
   (print-error (string-append "Arguments: "
 			      (string-join (->string (condition-irritants e)))))
   )
 
 (define (usage)
-  (print-error "Usage: cofre-cli category operation [arguments] ...")
+  (print-error "Usage: cofre-cli command operation [arguments] ...")
   (print-error " Special arguments")
   (print-error "   '@': replace this token with standard input if available")
   (print-error "   '$': chain to the next command.")
@@ -39,11 +40,17 @@ exec ${SAGITTARIUS} -L${dir}/lib -E info $0 "$@"
   (exit -1))
 
 (define (execute-command args)
-  (unless (>= (length args) 2) (usage))
+  (when (null? (cdr args))
+    (let ((desc (cofre:command-usage (string->symbol (car args)))))
+      (if desc
+	  (begin (print-usage desc) (exit -1))
+	  (usage))))
   (let ((command (cofre:command-builder
 		  (category (string->symbol (car args)))
-		  (operation (string->symbol (cadr args)))
-		  (arguments (cddr args)))))
+		  (operation (and (not (null? (cdr args)))
+				  (string->symbol (cadr args))))
+		  (arguments (or (and (not (null? (cdr args))) (cddr args))
+				 '())))))
     (guard (e ((command-usage-condition? e) (print-command-error e) (exit -1))
 	      (else (print-error e) (exit -2)))
       (cofre:execute-command command))))
@@ -68,20 +75,18 @@ exec ${SAGITTARIUS} -L${dir}/lib -E info $0 "$@"
 		(else (loop2 (cons (car args) v) (cdr args))))))))
 
 (define (main args)
-  (with-args (cdr args)
-      ((interactive? (#\i "interactive") #f #f)
-       . rest)
-    (if (exists (lambda (s) (string=? "$" s)) rest)
-	;; chain
-	(let ((commands (split-by rest (lambda (s) (string=? "$" s)))))
-	  (print (fold-left (lambda (acc command)
-			      (let ((resolved (replace-pipe command)))
-				(if acc
-				    (execute-command `(,@resolved ,acc))
-				    (execute-command resolved))))
-			    #f commands)))
-	(let ((resolved (replace-pipe rest)))
-	  (if (or (null? resolved) interactive?)
-	      (usage)
-	      (print (execute-command resolved)))))))
+  (define rest (cdr args))
+  (if (exists (lambda (s) (string=? "$" s)) rest)
+      ;; chain
+      (let ((commands (split-by rest (lambda (s) (string=? "$" s)))))
+	(print (fold-left (lambda (acc command)
+			    (let ((resolved (replace-pipe command)))
+			      (if acc
+				  (execute-command `(,@resolved ,acc))
+				  (execute-command resolved))))
+			  #f commands)))
+      (let ((resolved (replace-pipe rest)))
+	(if (null? resolved)
+	    (usage)
+	    (print (execute-command resolved))))))
 

@@ -31,6 +31,7 @@
     (export cofre:command-builder
 	    cofre:command?
 	    cofre:execute-command
+	    cofre:command-usage
 
 	    &command-condition
 	    make-command-condition
@@ -60,12 +61,13 @@
   (define lib `(cofre commands ,category))
   (define op (cofre:command-operation command))
   (define args (cofre:command-arguments command))
-  (unless op
-    (assertion-violation 'cofre:execute-command
-			 "command operation is missing" command))
   (let ((command (eval `(operation->command-executor ',op)
 		       (environment '(rnrs) lib))))
     (apply command args)))
+
+(define (cofre:command-usage command)
+  (guard (e (else #f))
+    (eval `command-usage (environment `(cofre commands ,command)))))
 
 (define-condition-type &command-condition &condition
   make-command-condition command-condition?
