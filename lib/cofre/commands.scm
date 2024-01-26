@@ -27,12 +27,25 @@
 ;;;
 
 #!nounbound
+#!nocache
 (library (cofre commands)
     (export cofre:command-builder
 	    cofre:command?
 	    cofre:execute-command
+	    cofre:commands
 	    command-condition?
 	    command-condition-command
 	    command-usage-condition?
 	    command-condition-usage)
-    (import (cofre commands api)))
+    (import (rnrs)
+	    (sagittarius)
+	    (util file)
+	    (cofre commands api))
+(define *cofre:commands*
+  (let ((r (find-files (path-sans-extension (current-load-path))
+		       :recursive #f)))
+    (filter (lambda (v) (not (string=? "api" v)))
+	    (map path-sans-extension (map path-basename r)))))
+
+(define (cofre:commands) *cofre:commands*)
+)

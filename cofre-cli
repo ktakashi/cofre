@@ -1,7 +1,8 @@
 #!/bin/bash
 #| -*- mode:scheme; coding:utf-8; -*-
 dir=$(dirname "$0")
-exec sagittarius -L${dir}/lib $0 "$@"
+SAGITTARIUS=${SAGITTARIUS:-"sagittarius"}
+exec ${SAGITTARIUS} -L${dir}/lib -E info $0 "$@"
 |#
 (import (rnrs)
 	(sagittarius)
@@ -33,6 +34,8 @@ exec sagittarius -L${dir}/lib $0 "$@"
   (print-error "   '@': replace this token with standard input if available")
   (print-error "   '$': chain to the next command.")
   (print-error "        e.g. $ cofre-cli encode base64 aa $ decode base64")
+  (print-error " Commands:")
+  (for-each (lambda (c) (print-error (string-append " - " c))) (cofre:commands))
   (exit -1))
 
 (define (execute-command args)
@@ -44,8 +47,6 @@ exec sagittarius -L${dir}/lib $0 "$@"
     (guard (e ((command-usage-condition? e) (print-command-error e) (exit -1))
 	      (else (print-error e) (exit -2)))
       (cofre:execute-command command))))
-
-(define (cofre:repl args) (error 'cofre:repl "not yet"))
 
 (define (replace-pipe rest)
   (define pipe-mark "@")
@@ -81,6 +82,6 @@ exec sagittarius -L${dir}/lib $0 "$@"
 			    #f commands)))
 	(let ((resolved (replace-pipe rest)))
 	  (if (or (null? resolved) interactive?)
-	      (cofre:repl resolved)
+	      (usage)
 	      (print (execute-command resolved)))))))
 
