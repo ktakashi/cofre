@@ -2,7 +2,7 @@
 #| -*- mode:scheme; coding:utf-8; -*-
 dir=$(dirname "$0")
 SAGITTARIUS=${SAGITTARIUS:-"sagittarius"}
-exec ${SAGITTARIUS} -L${dir}/lib -E info $0 "$@"
+exec ${SAGITTARIUS} -L${dir}/lib $0 "$@"
 |#
 (import (rnrs)
 	(sagittarius)

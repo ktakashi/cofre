@@ -42,7 +42,7 @@
   '(
     "json operation [options ...] value"
     "  operation: jmespath"
-    
+    ""
     "  jmespath -q $query value"
     "   -q,--query: JMESPath query"
     ))
