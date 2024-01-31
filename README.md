@@ -10,6 +10,22 @@ Prerequisite
 This project requires Sagittarius version 0.9.11 (current development
 version) or higher.
 
+It might be easier to try out if you use
+[`scheme-env`](https://github.com/ktakashi/scheme-env). You can install
+current development branch like this:
+
+```shell
+scheme-env install sagittarius@head
+```
+
+Then you can try the tool like this (in the same directory as this
+file is located):
+
+```shell
+SAGITTARIUS="scheme-env run sagittarius@head --" ./cofre-cli
+```
+
+
 Basic usage
 -----------
 
