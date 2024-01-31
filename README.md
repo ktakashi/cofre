@@ -46,3 +46,11 @@ Provides decoding operation, such as Base64
 ### caesar
 
 Providing Caesar cipher operation.
+
+### digest
+
+Providing digest operation, such as SHA-256
+
+### json
+
+Providing JSON operation, such as JMesPath query
