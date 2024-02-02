@@ -59,13 +59,21 @@
 
 (define (err msg arg)
   (command-usage-error 'json msg command-usage arg))
-(define (safe-json-parse json)
-  (guard (e (else (err "invalid json" json)))
-    (json-read (open-string-input-port json))))
+
 (define (json->string json) 
   (let-values (((out e) (open-string-output-port)))
     (json-write/normalized json out)
     (e)))
+(define (json-parse/read json)
+  (guard (e ((i/o-file-does-not-exist-error? e) (err "no such file" json))
+	    ((json-read-error? e)
+	     (err (string-append "invalid json: "
+				 (condition-message e))
+		  json))
+	    (else (err "unknown error" (condition-message e))))
+    (if (string-prefix? "@" json)
+	(call-with-input-file (substring json 1 (string-length json)) json-read)
+	(json-read (open-string-input-port json)))))
 
 (define (jmespath-operation . args)
   (define (safe-query-parse query)
@@ -77,28 +85,18 @@
     (unless query (err "no query" args))
     (when (null? rest) (err "no input" args))
     (let ((jp (safe-query-parse query))
-	  (json (safe-json-parse (car rest))))
+	  (json (json-parse/read (car rest))))
       (json->string (jp json)))))
 
 (define (json-patch-operation . args)
-  (define (parse/read patch)
-    (if (string-prefix? "@" patch)
-	(guard (e ((i/o-file-does-not-exist-error? e) (err "no such file" patch))
-		  ((json-read-error? e)
-		   (err (string-append "invalid json: "
-				       (condition-message e))
-			patch))
-		  (else (err "unknown error" (condition-message e))))
-	  (call-with-input-file (substring patch 1 (string-length patch))
-	    json-read))
-	(safe-json-parse patch)))
+  
   (with-args args
       ((patch (#\p "patch") #t #f)
        . rest)
     (unless patch (err "no patch" args))
     (when (null? rest) (err "no input" args))
-    (let ((patch-command (parse/read patch))
-	  (json (safe-json-parse (car rest))))
+    (let ((patch-command (json-parse/read patch))
+	  (json (json-parse/read (car rest))))
       (guard (e ((json-patch-error? e)
 		 (err (string-append "invalid json patch: "
 				     (condition-message e))
