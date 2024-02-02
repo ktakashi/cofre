@@ -78,7 +78,7 @@
     (when (null? rest) (err "no input" args))
     (let ((jp (safe-query-parse query))
 	  (json (safe-json-parse (car rest))))
-      (jp json))))
+      (json->string (jp json)))))
 
 (define (json-patch-operation . args)
   (define (parse/read patch)
