@@ -49,12 +49,14 @@
     "   -q,--query: JMESPath query"
     "  patch -p $patch value"
     "   -p,--patch: JSON patch, starting with `@' means a file"
+    "  diff a b"
     ))
   
 (define (operation->command-executor op)
   (case op
     ((jmespath) jmespath-operation)
     ((patch) json-patch-operation)
+    ((diff) json-diff-operation)
     (else (command-usage-error 'json "unknown operation" command-usage op))))
 
 (define (err msg arg)
@@ -89,7 +91,6 @@
       (json->string (jp json)))))
 
 (define (json-patch-operation . args)
-  
   (with-args args
       ((patch (#\p "patch") #t #f)
        . rest)
@@ -103,5 +104,12 @@
 		      patch-command))
 		(else (err "unknown error" (condition-message e))))
 	(json->string ((json-patcher patch-command) json))))))
+
+(define (json-diff-operation . args)
+  (let ((a (or (and (not (null? args)) (car args))
+	       (err "missing from input" args)))
+	(b (or (and (not (null? (cdr args))) (cadr args))
+	       (err "missing to input" args))))
+    (json->string (json-diff (json-parse/read a) (json-parse/read b)))))
       
 )
