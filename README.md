@@ -45,6 +45,27 @@ You can see the usage text when you type random `$operation` like this:
 cofre-cli encode dummy
 ```
 
+Command chain
+-------------
+
+By using `$` separator, commands can be chained. Below is a simple example.
+
+```shell
+cofre-cli encode base64 text $ decode base64
+```
+
+The result of the previous command is appended to the next command. If the
+command takes argument, i.e. with hyphon, then the order of the argument
+can be reordered like this:
+
+```shell
+cofre-cli json diff @file1.json @file2.json $ json patch {} -p
+```
+
+The above takes the result of the JSON diff command is appended the
+next JSON patch command so the `-p` argument takes the result.
+
+
 Supporting commands
 -------------------
 
