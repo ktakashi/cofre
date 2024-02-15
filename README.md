@@ -7,12 +7,12 @@ will be a chest box of tools what I need / use in my daily life.
 Prerequisite
 ------------
 
-This project requires Sagittarius version 0.9.11 (current development
-version) or higher.
+This project requires Sagittarius version 0.9.11 or higher.
 
-It might be easier to try out if you use
-[`scheme-env`](https://github.com/ktakashi/scheme-env). You can install
-current development branch like this:
+### Try with the latest Sagittarius
+
+You can use [`scheme-env`](https://github.com/ktakashi/scheme-env). 
+to install the latest version of Sagittarius like this:
 
 ```shell
 scheme-env install sagittarius@head
