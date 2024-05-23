@@ -52,7 +52,8 @@ exec ${SAGITTARIUS} -L${dir}/lib $0 "$@"
 		  (arguments (or (and (not (null? (cdr args))) (cddr args))
 				 '())))))
     (guard (e ((command-usage-condition? e) (print-command-error e) (exit -1))
-	      (else (print-error e) (exit -2)))
+	      (else (report-error e)
+		    (exit -2)))
       (cofre:execute-command command))))
 
 (define (replace-pipe rest)
