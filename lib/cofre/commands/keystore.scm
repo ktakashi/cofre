@@ -43,10 +43,9 @@
   '(
     "keystore type operation -o $output -p $password [options]"
     "  OPTIONS"
-    "    -o,--output:   output, $location[|$format], required"
-    "    -i,--input:    input, $location[|$format]"
-    "      $format must be 'base64' or 'raw'. Default value is 'raw'"
-    "      '~' for location means standard input or output."
+    "    -s,--keystore: keystore $location[|$format], required"
+    "      '~' for location means standard output."
+    "      if it's used on input then signals an error."
     "    -p,--password: keystore password, required"
     "    -P,--key-password: individual key password"
     "    -a,--alias:    alias"
@@ -72,72 +71,69 @@
     (command-usage-error 'keystore (string-append option " is required")
 			 command-usage option))
   (with-args args
-      ((output (#\o "output") #t (option-error "output"))
-       (input  (#\i "input")  #t #f)
+      ((keystore (#\s "keystore") #t (option-error "keystore"))
        (password (#\p "password") #t (option-error "password"))
        (key-password (#\P "key-password") #t #f)
        . rest)
     (when (null? rest)
       (command-usage-error 'keystore "operation is missing" command-usage args))
-    (let-values (((e out) (retrieve-output output)))
-      (store-keystore
-       (case (string->symbol (car rest))
-	 ((create) (make-keystore type)))
-       out password)
-      (e))))
+    (let* ((op (string->symbol (car rest)))
+	   (ks (case op
+		 ((create) (make-keystore type))
+		 (else (option->keystore type keystore password)))))
+      (write-keystore keystore ks password))))
 
-(define (retrieve-output opt)
-  (let-values (((loc format oport out) (parse-i/o-option opt #t)))
-    (define value? (string=? loc "~"))
-    (values
-     (if value?
-	 (lambda ()
-	   (when (eq? format 'base64) (close-port out))
-	   (let ((v (get-output-bytevector oport)))
-	     (case format
-	       ((base64) (utf8->string v))
-	       (else v))))
-	 (lambda () (close-port out) loc))
-     out)))
+(define (option->keystore type opt password)
+  (define (open-input-port file fmt)
+    (define (wrap-port in)
+      (case fmt
+	((base64)
+	 (open-base64-decode-input-port in :owner? #t))
+	(else in)))
+    (unless (file-exists? file)
+      (command-usage-error 'keystore "input keystore doesn't exist"
+			   command-usage file))
+    (wrap-port (open-file-input-port file)))
 
-(define (parse-i/o-option opt out?)
-  (define (wrap-port loc port fmt)
-    (define value? (string=? loc "~"))
-    (define format (string->symbol fmt))
-    (values loc
-     format
-     port
-     (case format
-       ((base64)
-	(if out?
-	    (open-base64-encode-output-port port
-					    :owner? (not value?)
-					    :line-width 76)
-	    (open-base64-decode-input-port port :owner? #t)))
-       ((raw) port)
-       (else
-	(command-usage-error 'keystore "unknown format" command-usage fmt)))))
-  (define (->port loc)
-    (define (check loc)
-      (when (and (not out?) (not (file-exists? loc)))
-	(command-usage-error 'keystore "input keystore doesn't exist"
-			     command-usage loc))
-      (when (and out? (file-exists? loc))
-	(command-usage-error 'keystore "output keystore exists"
-			     command-usage loc)))
-	
+  (let-values (((loc fmt) (parse-i/o-option opt)))
+    (when (string=? loc "~")
+      (command-usage-error 'keystore "input keystore can't be stdin"
+			   command-usage opt))
+    (call-with-port (open-input-port loc fmt)
+      (lambda (in) (load-keystore type in password)))))
+
+(define (write-keystore opt ks password)
+  (define (write-to-port out fmt value?)
+    (define (wrap-port out)
+      (case fmt
+	((base64)
+	 (open-base64-encode-output-port out
+					 :owner? (not value?)
+					 :line-width 76))
+	(else out)))
+    (let ((p (wrap-port out)))
+      (store-keystore ks p password)
+      (when value?
+	(cond ((eq? fmt 'base64)
+	       (close-port p)
+	       (utf8->string (get-output-bytevector out)))
+	      (else (get-output-bytevector out))))))
+
+  (let-values (((loc fmt) (parse-i/o-option opt)))
     (if (string=? loc "~")
-	(if out? (open-output-bytevector) (standard-input-port))
-	;; TODO are default file options okay?
-	(if (and (check loc) out?)
-	    (open-file-output-port loc)
-	    (open-file-input-port loc))))
+	(let ((out (open-output-bytevector)))
+	  (write-to-port out fmt #t))
+	(let ((out (open-file-output-port loc (file-options no-fail))))
+	  (write-to-port out fmt #f)
+	  loc))))
+
+
+(define (parse-i/o-option opt)
   (cond ((string-index opt #\|) =>
 	 (lambda (index)
 	   (let ((loc (substring opt 0 index))
 		 (fmt (substring opt (+ index 1) (string-length opt))))
-	     (wrap-port loc (->port loc) fmt))))
-	(else (wrap-port opt (->port opt) "raw"))))
-	   
+	     (values loc (string->symbol fmt)))))
+	(else (values opt 'raw))))
 
 )
