@@ -39,13 +39,9 @@
 	    (rfc base64)
 	    (security keystore)
 	    (sagittarius crypto keys)
-	    (sagittarius crypto x509)
-	    (sagittarius crypto random)
 	    (sagittarius crypto signatures)
-	    (srfi :13 strings)
-	    (srfi :19 time)
-	    (util duration)
-	    (cofre commands api))
+	    (cofre commands api)
+	    (cofre x509))
 (define command-usage
   '(
     "keystore type operation -o $output -p $password [options]"
@@ -73,12 +69,14 @@
     ""
     "  type: pkcs12, p12, jks or jceks"
     ""
-    "  operation: create, gen"
+    "  operation: create, gen, list"
     ""
     "  create:"
     "    Creates an empty keystore"
     "  gen:"
     "    Generates self signed certificate with private key"
+    "  list:"
+    "    Lists all the certificate entry with its finger print"
     ))
 
 (define (operation->command-executor op)
@@ -113,97 +111,54 @@
 	((gen)
 	 (check-option subj "subject")
 	 (check-option alias "alias")
-	 (let-values (((priv-key cert)
-		       (generate-self-signed-certificate subj algo period)))
-	   (keystore-set-key! ks alias priv-key
-			      (or key-password password)
-			      (list cert)))))
-      (write-keystore keystore ks password))))
+	 (let ((subjct-dn (string->x509-name subj)))
+	   (unless subjct-dn
+	     (command-usage-error 'keystore "Invalid DN format"
+				  command-usage subj))
+	   (let*-values (((kp algorithm) (generate-kp algo))
+			 ((priv-key cert)
+			  (generate-self-signed-certificate
+			   subjct-dn kp algorithm period)))
+	     (unless priv-key
+	       (command-usage-error
+		'keystore "Failed to generate self signed certificate"
+		command-usage algo))
+	     (keystore-set-key! ks alias priv-key
+				(or key-password password)
+				(list cert))
+	     (write-keystore keystore ks password))))
+	((list)
+	 (map (lambda (alias)
+		(cons alias
+		      (x509-finger-print (keystore-get-certificate ks alias))))
+	      (keystore-aliases ks)))
+	;; damn...
+	(else (write-keystore keystore ks password))))))
 
-(define (string-dn->list-components s)
-  (define len (string-length s))
-  (define (split-attr k&v)
-    (cond ((string-index k&v #\=) =>
-	   (lambda (i)
-	     (list (string->symbol (substring k&v 0 i))
-		   (substring k&v (+ i 1) (string-length k&v)))))
-	  (else
-	   (command-usage-error 'keystore "Invalid DN format"
-				command-usage s))))
-	     
-  (let loop ((r '()) (off 0))
-    (cond ((= off len) (reverse r))
-	  ((string-index s #\, off) =>
-	   (lambda (i)
-	     (loop (cons (split-attr (substring s off i)) r) (+ i 1))))
-	  (else
-	   (reverse (cons (split-attr (substring s off len)) r))))))
-
-(define random-generator (secure-random-generator *prng:chacha20*))
-(define *serialnumber-upper-bound* (expt 2 64))
-
-(define (generate-self-signed-certificate subj opt period)
-  (define (generate-serial-number)
-    (random-generator-random-integer random-generator
-				     *serialnumber-upper-bound*))
-  (define (generate-kp opt)
-    (let-values (((algo other) (parse-attributed-option opt)))
-      (cond ((string=? algo "rsa")
-	     (values (generate-key-pair *key:rsa*
-					:size (string->number (or other "4096")))
-		     *signature-algorithm:rsa-pkcs-v1.5-sha256*))
-	    ((string=? algo "rsa-pss")
-	     (values (generate-key-pair *key:rsa*
-					:size (string->number (or other "4096")))
-		     *signature-algorithm:rsa-ssa-pss*))
-	    ((string=? algo "ec")
-	     (let ((param (eval (string->symbol
-				 (string-append "*ec-parameter:" other "*"))
-				(environment '(sagittarius crypto keys)))))
-	       (values (generate-key-pair *key:ecdsa* :ec-parameter param)
-		       *signature-algorithm:ecdsa-sha256*)))
-	    ((string=? algo "ed25519")
-	     (values (generate-key-pair *key:ed25519*)
-		     *signature-algorithm:ed25519*))
-	    ((string=? algo "ed448")
-	     (values (generate-key-pair *key:ed448*)
-		     *signature-algorithm:ed448*))
-	    (else (command-usage-error 'keystore "Unknown key algorithm"
-				       command-usage opt)))))
-  (define (->template dn sn period public-key)
-    (define now (current-time))
-    (define p (duration:of-days period))
-    (x509-certificate-template-builder
-     (issuer-dn dn)
-     (subject-dn dn)
-     (serial-number sn)
-     (not-before (time-utc->date now))
-     (not-after (time-utc->date (add-duration now p)))
-     (public-key public-key)
-     (extensions
-      (list
-       (make-x509-key-usage-extension
-	(x509-key-usages digital-signature
-			 key-encipherment
-			 key-agreement
-			 decipher-only)
-	#t)
-       (make-x509-private-key-usage-period-extension
-	(make-x509-private-key-usage-period
-	 :not-before (time-utc->date now))
-	#t)
-       
-       (make-x509-basic-constraints-extension
-	(make-x509-basic-constraints :ca #f))))))
-  (let-values (((kp algo) (generate-kp opt)))
-    (let ((priv-key (key-pair-private kp)))
-      (values priv-key
-	      (sign-x509-certificate-template
-	       (->template (list->x509-name (string-dn->list-components subj))
-			   (generate-serial-number)
-			   (string->number period)
-			   (key-pair-public kp))
-	       algo priv-key)))))
+(define (generate-kp opt)
+  (let-values (((algo other) (parse-attributed-option opt)))
+    (cond ((string=? algo "rsa")
+	   (values (generate-key-pair *key:rsa*
+				      :size (string->number (or other "4096")))
+		   *signature-algorithm:rsa-pkcs-v1.5-sha256*))
+	  ((string=? algo "rsa-pss")
+	   (values (generate-key-pair *key:rsa*
+				      :size (string->number (or other "4096")))
+		   *signature-algorithm:rsa-ssa-pss*))
+	  ((string=? algo "ec")
+	   (let ((param (eval (string->symbol
+			       (string-append "*ec-parameter:" other "*"))
+			      (environment '(sagittarius crypto keys)))))
+	     (values (generate-key-pair *key:ecdsa* :ec-parameter param)
+		     *signature-algorithm:ecdsa-sha256*)))
+	  ((string=? algo "ed25519")
+	   (values (generate-key-pair *key:ed25519*)
+		   *signature-algorithm:ed25519*))
+	  ((string=? algo "ed448")
+	   (values (generate-key-pair *key:ed448*)
+		   *signature-algorithm:ed448*))
+	  (else (command-usage-error 'keystore "Unknown key algorithm"
+				     command-usage opt)))))
 
 (define (option->keystore type opt password)
   (define (open-input-port file fmt)
