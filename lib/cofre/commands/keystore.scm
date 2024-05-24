@@ -59,7 +59,12 @@
     "    -a,--alias:    alias of the entry."
     "    -S,--subject:  subject DN of the generating certificate"
     "    -A,--algorithm: key algorithm, default ec|secp256r1"
-    "      Algorithm can be rsa, rsa|$bits, ec, ec|$curve, ed25519, ed448"
+    "      Supporting algorithms:"
+    "        - rsa, rsa|$bits: RSA with PKCS v1.5 signature"
+    "        - rsa-pss, rsa-pss|$bits: RSA with RSA-SSAPSS"
+    "        - ec, ec|$curve:  ECDSA with $curve"
+    "        - ed25519:        Ed25519"
+    "        - ed448:          Ed448"
     "      Default RSA key size is 4096."
     "      $bits is provided, then it generates $bits size RSA key."
     "      Default EC curve is secp256r1 (aka NIST P-256)"
@@ -71,7 +76,7 @@
     "  operation: create, gen"
     ""
     "  create:"
-    "    Create an empty keystore"
+    "    Creates an empty keystore"
     "  gen:"
     "    Generates self signed certificate with private key"
     ))
@@ -146,6 +151,10 @@
       (cond ((string=? algo "rsa")
 	     (values (generate-key-pair *key:rsa*
 					:size (string->number (or other "4096")))
+		     *signature-algorithm:rsa-pkcs-v1.5-sha256*))
+	    ((string=? algo "rsa-pss")
+	     (values (generate-key-pair *key:rsa*
+					:size (string->number (or other "4096")))
 		     *signature-algorithm:rsa-ssa-pss*))
 	    ((string=? algo "ec")
 	     (let ((param (eval (string->symbol
@@ -212,8 +221,10 @@
     (when (string=? loc "~")
       (command-usage-error 'keystore "input keystore can't be stdin"
 			   command-usage opt))
-    (call-with-port (open-input-port loc fmt)
-      (lambda (in) (load-keystore type in password)))))
+    (if (file-exists? loc)
+	(call-with-port (open-input-port loc fmt)
+	  (lambda (in) (load-keystore type in password)))
+	(make-keystore type))))
 
 (define (write-keystore opt ks password)
   (define (write-to-port out fmt value?)
@@ -244,13 +255,4 @@
 (define (parse-i/o-option opt)
   (let-values (((a b) (parse-attributed-option opt)))
     (values a (or (and b (string->symbol b)) 'raw))))
-
-(define (parse-attributed-option opt)
-  (cond ((string-index opt #\|) =>
-	 (lambda (index)
-	   (let ((loc (substring opt 0 index))
-		 (fmt (substring opt (+ index 1) (string-length opt))))
-	     (values loc fmt))))
-	(else (values opt #f))))
-
 )

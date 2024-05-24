@@ -42,10 +42,12 @@
 	    command-usage-condition?
 	    command-condition-usage
 
-	    command-usage-error)
+	    command-usage-error
+	    parse-attributed-option)
     (import (rnrs)
 	    (rnrs eval)
-	    (record builder))
+	    (record builder)
+	    (srfi :13 strings))
 
 (define-record-type cofre:command
   (fields category
@@ -82,5 +84,13 @@
 	  (make-command-usage-condition command usage)
 	  (make-message-condition message)
 	  (make-irritants-condition args))))
+
+(define (parse-attributed-option opt)
+  (cond ((string-index opt #\|) =>
+	 (lambda (index)
+	   (let ((loc (substring opt 0 index))
+		 (fmt (substring opt (+ index 1) (string-length opt))))
+	     (values loc fmt))))
+	(else (values opt #f))))
 
 )
