@@ -44,11 +44,9 @@
 	    (cofre x509))
 (define command-usage
   '(
-    "keystore type operation -o $output -p $password [options]"
+    "keystore type operation -s $keystore -p $password [options]"
     "  OPTIONS"
     "    -s,--keystore: keystore $location[|$format], required"
-    "      '~' for location means standard output."
-    "      if it's used on input then signals an error."
     "    -p,--password: keystore password, required"
     "    -P,--key-password: individual key password, if not specified"
     "      using keystore password."
@@ -66,6 +64,16 @@
     "      Default EC curve is secp256r1 (aka NIST P-256)"
     "      $curve must be valid as *ec-parameter:$curve*"
     "    -T,--period:   Certificate period in days. Default 365"
+    "    -o,--output:   Output file $location[|$format]"
+    ""
+    "$location[|$format]"
+    "   '~' for location means standard output."
+    "   if it's used on input then signals an error."
+    "   $format can be `base64`, `raw` and `pem` (only export/import)"
+    ""
+    "Alias option"
+    "   for export and import operation, alias can be $alias[|$type]"
+    "   $type can be `private-key` or `certificate` "
     ""
     "  type: pkcs12, p12, jks or jceks"
     ""
@@ -75,8 +83,12 @@
     "    Creates an empty keystore"
     "  gen:"
     "    Generates self signed certificate with private key"
+    "    This command requires -a and -S options"
     "  list:"
     "    Lists all the certificate entry with its finger print"
+    "  export:"
+    "    Exports specified entry"
+    "    This command requires -a and -o options"
     ))
 
 (define (operation->command-executor op)
@@ -96,10 +108,12 @@
       ((keystore (#\s "keystore") #t (option-error "keystore"))
        (password (#\p "password") #t (option-error "password"))
        (key-password (#\P "key-password") #t #f)
+       (export-password (#\E "export-password") #t #f)
        (alias (#\a "alias") #t #f)
        (subj (#\S "subject") #t #f)
        (algo (#\A "algorithm") #t "ec|secp256r1")
        (period (#\T "period") #t "365")
+       (output (#\o "output") #t #f)
        . rest)
     (when (null? rest)
       (command-usage-error 'keystore "operation is missing" command-usage args))
@@ -132,9 +146,52 @@
 		(cons alias
 		      (x509-finger-print (keystore-get-certificate ks alias))))
 	      (keystore-aliases ks)))
+	((export)
+	 (check-option output "output")
+	 (check-option alias "alias")
+	 (let-values (((loc fmt) (parse-i/o-option output))
+		      ((name entry-fmt) (parse-entry-option alias)))
+	   (let ((e (case entry-fmt
+		      ((private-key)
+		       (retrieve-private-key ks name
+			(or key-password password) export-password))
+		      ((certificate)
+		       (keystore-get-certificate ks name))
+		      (else
+		       (command-usage-error 'keystore "Invalid entry type"
+					    command-usage entry-fmt)))))
+	     (write-entry loc fmt e))))
 	;; damn...
 	(else (write-keystore keystore ks password))))))
 
+(define (write-entry loc fmt entry)
+  (define value? (string=? "~" loc))
+  (define type (case fmt
+		 ((pem base64) (object-type pem))
+		 ((raw cer) (object-type cer))
+		 (else
+		  (command-usage-error 'keystore "Invalid output format"
+				       command-usage fmt))))
+  (let ((bv (object->bytevector entry type))
+	(out (if value?
+		 (open-output-bytevector)
+		 (open-file-output-port loc (file-options no-fail)))))
+    (put-bytevector out bv)
+    (cond (value?
+	   (let ((bv (get-output-bytevector out)))
+	     (if (eq? type 'pem)
+		 (utf8->string bv)
+		 bv)))
+	  (else (close-port out) loc))))
+
+
+    
+(define (retrieve-private-key ks name password encryption-password)
+  (let ((pk (keystore-get-key ks name password)))
+    (if encryption-password
+	(encrypt-private-key pk encryption-password)
+	(private-key->private-key-info pk))))
+      
 (define (generate-kp opt)
   (let-values (((algo other) (parse-attributed-option opt)))
     (cond ((string=? algo "rsa")
@@ -210,4 +267,9 @@
 (define (parse-i/o-option opt)
   (let-values (((a b) (parse-attributed-option opt)))
     (values a (or (and b (string->symbol b)) 'raw))))
+
+(define (parse-entry-option opt)
+  (let-values (((a b) (parse-attributed-option opt)))
+    (values a (or (and b (string->symbol b)) 'certificate))))
+
 )
