@@ -7,7 +7,10 @@ will be a chest box of tools what I need / use in my daily life.
 Prerequisite
 ------------
 
-This project requires Sagittarius version 0.9.11 or higher.
+This project requires Sagittarius version 0.9.11.
+
+Some commands require higher version. See the command
+overview section for more details.
 
 ### Try with the latest Sagittarius
 
@@ -91,3 +94,14 @@ Providing digest operation, such as SHA-256
 ### json
 
 Providing JSON operation, such as JMesPath query
+
+### keystore
+
+Providing keystore operations for PKCS12, JKS and JCEKS.
+It's a convenient CLI for `(security keystore)`
+
+This commend requires Sagittarius version 0.9.12 or higher
+
+### uuid
+
+Providing UUID generation
