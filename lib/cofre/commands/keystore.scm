@@ -142,10 +142,13 @@
 				(list cert))
 	     (write-keystore keystore ks password))))
 	((list)
-	 (map (lambda (alias)
-		(cons alias
-		      (x509-finger-print (keystore-get-certificate ks alias))))
-	      (keystore-aliases ks)))
+	 (cond-expand
+	  ((and cond-expand.version (version (>= "0.9.12")))
+	   (map (lambda (alias)
+		  (cons alias
+			(x509-finger-print (keystore-get-certificate ks alias))))
+		(keystore-aliases ks)))
+	  (else '())))
 	((export)
 	 (check-option output "output")
 	 (check-option alias "alias")
