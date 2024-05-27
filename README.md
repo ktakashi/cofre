@@ -100,7 +100,7 @@ Providing JSON operation, such as JMesPath query
 Providing keystore operations for PKCS12, JKS and JCEKS.
 It's a convenient CLI for `(security keystore)`
 
-This commend requires Sagittarius version 0.9.12 or higher
+The `list` operation of this command requires Sagittarius 0.9.12 or higher.
 
 ### uuid
 
