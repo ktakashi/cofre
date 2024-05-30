@@ -31,6 +31,8 @@
     (export x509-finger-print
 	    decode-pem-string
 	    base64-string->certificate
+	    base64-string->certification-request
+	    base64-string->certificate-revocation-list
 	    string->x509-name
 	    generate-self-signed-certificate
 	    encrypt-private-key
@@ -62,6 +64,14 @@
 (define (decode-pem-string s) (pem-object->object (string->pem-object s)))
 (define (base64-string->certificate s)
   (bytevector->x509-certificate (base64-decode-string s :transcoder #f)))
+
+(define (base64-string->certification-request s)
+  (bytevector->x509-certification-request
+   (base64-decode-string s :transcoder #f)))
+
+(define (base64-string->certificate-revocation-list s)
+  (bytevector->x509-certificate-revocation-list
+   (base64-decode-string s :transcoder #f)))
 
 (define-enumeration object-type
   (pem cer)

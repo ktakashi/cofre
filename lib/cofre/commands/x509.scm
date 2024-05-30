@@ -40,21 +40,27 @@
 (define command-usage
   '(
     "x509 operation [options] value"
+    "operation: decode, csr"
+    ""
+    "decode"
     "  OPTIONS"
     "    -f,--format: input format, default PEM"
     "      supporting format PEM, Base64"
-    ""
-    "operation: decode"
+    "    -t,--type: input object type, default certificate"
+    "      if the format is Base64, then the command decodes"
+    "      according to the given type"
     ))
 
 (define (operation->command-executor op)
   (case op
     ((decode) decode-certificate)
+    ((csr) csr-operation)
     (else (command-usage-error 'x509 "unknown operation" command-usage op))))
 
 (define (decode-certificate . args)
   (with-args args
       ((format (#\f "format") #t "PEM")
+       (type (#\t "type") #t "certificate")
        . rest)
     (when (null? rest)
       (command-usage-error 'x509 "value is missing" command-usage args))
@@ -62,8 +68,17 @@
     (let ((value (car rest)))
       (case (string->symbol (string-downcase format))
 	((pem) (decode-pem-string value))
-	((base64) (base64-string->certificate value))
+	((base64)
+	 (case (string->symbol (string-downcase type))
+	   ((certificate) (base64-string->certificate value))
+	   ((csr) (base64-string->certification-request value))
+	   ((crl) (base64-string->certificate-revocation-list value))
+	   (else
+	    (command-usage-error 'x509 "unknown type" command-usage type))))
 	(else
 	 (command-usage-error 'x509 "unknown format" command-usage format))))))
+
+(define (csr-operation . args)
+  (command-usage-error 'x509 "Not yet" command-usage "sorry"))
 
 )
