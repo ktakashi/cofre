@@ -30,6 +30,7 @@
 (library (cofre x509)
     (export x509-finger-print
 	    decode-pem-string
+	    decode-pem-file
 	    base64-string->certificate
 	    base64-string->certification-request
 	    base64-string->certificate-revocation-list
@@ -43,6 +44,7 @@
 	    (util duration)
 	    (srfi :13 strings)
 	    (srfi :19 time)
+	    (sagittarius crypto asn1)
 	    (sagittarius crypto digests)
 	    (sagittarius crypto keys)
 	    (sagittarius crypto random)
@@ -62,6 +64,9 @@
 	(else #f)))
 
 (define (decode-pem-string s) (pem-object->object (string->pem-object s)))
+(define (decode-pem-file file)
+  (call-with-input-file file
+    (lambda (in) (pem-object->object (read-pem-object in)))))
 (define (base64-string->certificate s)
   (bytevector->x509-certificate (base64-decode-string s :transcoder #f)))
 
@@ -89,6 +94,7 @@
 	      (private-key->pkcs-one-asymmetric-key obj)))
 	    ((pkcs-encrypted-private-key-info? obj)
 	     (pkcs-encrypted-private-key-info->bytevector obj))
+	    ((asn1-encodable? obj) (asn1-encodable->bytevector obj))
 	    (else #f))))
 
 (define (encrypt-private-key pk password)

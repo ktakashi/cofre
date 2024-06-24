@@ -40,6 +40,7 @@
 	    (security keystore)
 	    (sagittarius crypto keys)
 	    (sagittarius crypto signatures)
+	    (sagittarius crypto x509)
 	    (cofre commands api)
 	    (cofre x509))
 (define command-usage
@@ -160,6 +161,9 @@
 			(or key-password password) export-password))
 		      ((certificate)
 		       (keystore-get-certificate ks name))
+		      ((public-key)
+		       (x509-certificate-public-key
+			(keystore-get-certificate ks name)))
 		      (else
 		       (command-usage-error 'keystore "Invalid entry type"
 					    command-usage entry-fmt)))))

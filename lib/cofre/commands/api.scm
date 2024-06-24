@@ -43,7 +43,9 @@
 	    command-condition-usage
 
 	    command-usage-error
-	    parse-attributed-option)
+	    parse-attributed-option
+	    read/return-conent
+	    )
     (import (rnrs)
 	    (rnrs eval)
 	    (record builder)
@@ -92,5 +94,18 @@
 		 (fmt (substring opt (+ index 1) (string-length opt))))
 	     (values loc fmt))))
 	(else (values opt #f))))
+
+(define (read/return-conent s :key (transcoder (native-transcoder)))
+  (if (string-prefix? "@" s)
+      (call-with-input-file (substring s 1 (string-length s))
+	(lambda (in)
+	  (let ((v (get-bytevector-all in)))
+	    (if transcoder
+		(bytevector->string v transcoder)
+		v)))
+	:transcoder #f)
+      (if transcoder
+	  s
+	  (string->utf8 s))))
 
 )
