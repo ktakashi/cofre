@@ -49,7 +49,7 @@
 (define command-usage
   '(
     "jwt operation [options ...]"
-    "  operations: parse, key, sign"
+    "  operations: parse, key, sign, verify"
     ""
     "  parse [options ...] value"
     "    parse the given JWT"
@@ -70,7 +70,11 @@
     "        apropriate one is chosen"
     "      -o,--output: Where to dump. Default stdout"
     "     `type` can be `jwk` or `pem`"
-
+    ""
+    "  verify -k $key[|type] $jwt"
+    "    Verify given $jwt with the $key"
+    "      -k,--key: Verifying public key"
+    "     `type` can be `jwk` or `pem`"
     ))
 
 (define (operation->command-executor op)
@@ -152,7 +156,7 @@
       (case t
 	((jwk) (let ((jwk (call-with-input-file a read-jwk)))
 		 (values jwk (jwk-kid jwk))))
-	((pem) (values (key->jwk (pkcs-key->key (decode-pem-file key))) #f))
+	((pem) (values (key->jwk (pkcs-key->key (decode-pem-file a))) #f))
 	(else (command-usage-error 'jwt "Unknown key format"
 				   command-usage t))))))
 	
