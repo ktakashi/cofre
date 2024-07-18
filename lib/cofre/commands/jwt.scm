@@ -78,6 +78,7 @@
     ((decode) decode-jwt)
     ((key) ->jwk)
     ((sign) sign-payload)
+    ((verify) verify-jwt)
     (else (command-usage-error 'jwt "unknown operation" command-usage op))))
 
 (define (decode-jwt . args)
@@ -115,6 +116,16 @@
 		   (lambda (out) (put-string out v)))
 		 out))))))
 
+(define (verify-jwt . args)
+  (with-args args
+      ((key (#\k "key") #t (option-error "key"))
+       . rest)
+    (when (null? rest)
+      (command-usage-error 'jwt "JWT is required" command-usage rest))
+    (let-values (((key ignore) (parse-jwt-key key)))
+      (let ((jws (jws:parse (car rest)))
+	    (verifier (public-key->jws-verifier key)))
+	(jws:verify jws verifier)))))
 
 (define (sign-payload . args)
   (with-args args
