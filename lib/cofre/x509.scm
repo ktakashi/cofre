@@ -44,6 +44,7 @@
 	    (util duration)
 	    (srfi :13 strings)
 	    (srfi :19 time)
+	    (sagittarius)
 	    (sagittarius crypto asn1)
 	    (sagittarius crypto digests)
 	    (sagittarius crypto keys)
@@ -59,9 +60,14 @@
   (define md (make-message-digest ds))
   (digest-message md (x509-certificate->bytevector cert)))
 
-(define (string->x509-name s)
-  (cond ((string-dn->list-components s) => list->x509-name)
-	(else #f)))
+(cond-expand
+ ((and cond-expand.version (version (>= "0.9.12")))
+  ;; do nothing
+  (begin))
+ (else
+  (define (string->x509-name s)
+    (cond ((string-dn->list-components s) => list->x509-name)
+	   (else #f)))))
 
 (define (decode-pem-string s) (pem-object->object (string->pem-object s)))
 (define (decode-pem-file file)
