@@ -24,7 +24,8 @@ gen-cli: cofre-cli.tmp
 
 cofre-cli.tmp:
 	echo '#/bin/bash' > $@
-	echo 'scheme-env run sagittarius@$(SAGITTARIUS_VERSION) -- cofre-cli.scm' >> $@
+	echo 'dir=$$(dirname "$$0")' >> $@
+	echo 'scheme-env run sagittarius@$(SAGITTARIUS_VERSION) -- $$dir/cofre-cli.scm' >> $@
 
 clean:
 	$(RM) $(TEMP_CLI)
