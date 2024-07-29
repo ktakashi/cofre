@@ -1,9 +1,3 @@
-#!/bin/bash
-#| -*- mode:scheme; coding:utf-8; -*-
-dir=$(dirname "$0")
-SAGITTARIUS=${SAGITTARIUS:-"sagittarius"}
-exec ${SAGITTARIUS} -L${dir}/lib $0 "$@"
-|#
 (import (rnrs)
 	(sagittarius)
 	(srfi :1)
